@@ -1,0 +1,12 @@
+﻿Customer ID,Customer-ID,Full Name,Customer Age,Annual Salary ($),City ,Membership Tier,Join-Date,System Flag
+CUST_1001,1001,  alice johnson ,28,",000",  chennai ,Silver,2025-01-10,ACTIVE
+CUST_1002,1002,bob smith,, ",500",MUMBAI  ,Gold,2025-01-12,ACTIVE
+CUST_1002,1002,bob smith,, ",500",MUMBAI  ,Gold,2025-01-12,ACTIVE
+CUST_1003,1003,CHARLIE DAVIS,35,",000",  bengaluru,Platinum,2025-01-15,ACTIVE
+CUST_1004,1004,diana prince,31,",200",chennai,Silver,2025-01-18,ACTIVE
+CUST_1005,1005,evan wright,, ",000",  delhi ,Bronze,2025-01-20,ACTIVE
+CUST_1006,1006,fiona gallagher,26,",000",mumbai,,2025-01-22,ACTIVE
+CUST_1007,1007,george miller,42,",000",Hyderabad,Gold,2025-01-25,ACTIVE
+CUST_1008,1008,hannah abbott,195,",000",  chennai ,Silver,2025-01-28,ACTIVE
+CUST_1009,1009,ian malcolm,39,",000",bengaluru,,2025-02-01,ACTIVE
+CUST_1010,1010,julia roberts,33,",000",delhi,Gold,2025-02-04,ACTIVE

@@ -13,8 +13,7 @@ def analyze_dataset_quality(
 ) -> QualityAnalysisResponse:
     """
     Quality Analysis Agent:
-    Performs all 16 deterministic data-quality and ML-readiness checks,
-    separating confirmed issues from potential anomalies.
+    Performs all deterministic data-quality and ML-readiness checks with speed optimizations.
     """
     row_count = int(len(df))
     col_count = int(len(df.columns))
@@ -80,12 +79,13 @@ def analyze_dataset_quality(
             )
             issue_counter += 1
 
-    # 3. Possible Duplicate Business Records (excluding ID columns, normalizing case/whitespace)
+    # 3. Possible Duplicate Business Records (Speed-optimized: skipped if rows > 25,000)
     non_id_cols = [
         c for c in df.columns
         if not bool(re.search(r"(?:^|_)(?:id|uuid|guid|key|code)(?:$|_\d+$)", c))
     ]
-    if row_count > 1 and len(non_id_cols) >= 2:
+    fuzzy_dups_count = 0
+    if row_count > 1 and len(non_id_cols) >= 2 and row_count <= 25000:
         norm_subset = df[non_id_cols].copy()
         for c in non_id_cols:
             if pd.api.types.is_object_dtype(norm_subset[c]) or pd.api.types.is_string_dtype(norm_subset[c]):
@@ -235,14 +235,12 @@ def analyze_dataset_quality(
         if len(non_null) == 0:
             continue
 
-        # 7a. Numbers stored as strings
         cleaned_num_test = non_null.str.replace(r"[\$,\s%]", "", regex=True)
         numeric_convertible = pd.to_numeric(cleaned_num_test, errors="coerce")
         if numeric_convertible.notna().mean() >= 0.8 and non_null.nunique() >= 2:
             string_numbers_cols.append(col)
             continue
 
-        # 7b. Date columns with invalid dates or mixed formats
         is_date_named = bool(
             re.search(r"(?:^|_)(?:date|time|timestamp|dt|dob|join_date|order_date)(?:$|_)", col)
         )
@@ -254,14 +252,12 @@ def analyze_dataset_quality(
             if (0.0 < invalid_ratio < 0.5) or (has_slash and has_dash):
                 invalid_date_cols.append(col)
 
-        # 7c. Untrimmed whitespace or inconsistent capitalization (e.g. "chennai" vs "CHENNAI")
         has_ws = bool(non_null.str.startswith(" ").any() or non_null.str.endswith(" ").any())
         stripped = non_null.str.strip()
         case_collision = stripped.str.lower().nunique() < stripped.nunique()
         if has_ws or case_collision:
             whitespace_or_case_cols.append(col)
 
-        # 7d. High-cardinality categoricals (non-ID string columns with >50 unique values and >50% unique ratio)
         is_id_named = bool(re.search(r"(?:^|_)(?:id|uuid|guid|key|code|name)(?:$|_)", col))
         if not is_id_named and len(non_null) >= 20:
             uniq_cnt = non_null.nunique()
@@ -359,7 +355,6 @@ def analyze_dataset_quality(
         iqr_mask = (series < lower_fence) | (series > upper_fence) if iqr > 0 else pd.Series(False, index=series.index)
         iqr_cnt = int(iqr_mask.sum())
 
-        # Modified Z-Score using Median Absolute Deviation (MAD)
         mad = float(np.median(np.abs(series - median)))
         if mad > 0:
             mod_z = 0.6745 * np.abs(series - median) / mad
@@ -400,7 +395,7 @@ def analyze_dataset_quality(
                 issue_id=f"ISSUE_{issue_counter:03d}",
                 category="outliers",
                 severity="medium",
-                is_confirmed=False,  # Potential anomaly: never delete automatically
+                is_confirmed=False,
                 affected_columns=list(outlier_cols_detected.keys()),
                 title="Numeric Outliers Detected (IQR & Modified Z-Score)",
                 description=f"Found {total_outliers_count:,} potential outlier values across {len(outlier_cols_detected)} numeric column(s) via 1.5x IQR and Modified Z-Score.",
@@ -439,7 +434,10 @@ def analyze_dataset_quality(
         )
         issue_counter += 1
 
-    # 10. Highly Correlated Numeric Columns (|r| > 0.85)
+    # 10. Highly Correlated Numeric Columns (Speed-optimized: capped at 30 columns max)
+    if len(numeric_cols) > 30:
+        numeric_cols = numeric_cols[:30]
+
     if len(numeric_cols) >= 2 and row_count >= 5:
         corr_matrix = df[numeric_cols].corr().abs()
         high_corr_pairs: list[str] = []
@@ -470,7 +468,7 @@ def analyze_dataset_quality(
             )
             issue_counter += 1
 
-    # 11. Target Class Imbalance & Potential Data Leakage (when target_column is provided)
+    # 11. Target Class Imbalance & Potential Data Leakage
     if target_column and target_column in df.columns:
         target_series = df[target_column].dropna()
         if 2 <= target_series.nunique() <= 20 and len(target_series) >= 5:
@@ -495,7 +493,6 @@ def analyze_dataset_quality(
                 )
                 issue_counter += 1
 
-        # Potential Data Leakage check against target
         leakage_suspects: list[str] = []
         if pd.api.types.is_numeric_dtype(df[target_column]):
             target_num = pd.to_numeric(df[target_column], errors="coerce")

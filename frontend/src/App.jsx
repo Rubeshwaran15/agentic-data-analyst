@@ -32,6 +32,7 @@ export default function App() {
   const [userGoal, setUserGoal] = useState("");
   const [activeTab, setActiveTab] = useState("recommendations");
   const [isLoading, setIsLoading] = useState(false);
+  const [isTabLoading, setIsTabLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [statusBanner, setStatusBanner] = useState("");
 
@@ -40,27 +41,34 @@ export default function App() {
     targetCol = targetColumn,
     goal = userGoal
   ) => {
-    const [
-      preview,
-      profile,
-      quality,
-      recommendations,
-      history,
-      comparison,
-    ] = await Promise.all([
-      fetchDatasetPreview(datasetId),
-      fetchDatasetProfile(datasetId),
-      fetchDatasetQuality(datasetId, targetCol),
-      fetchDatasetRecommendations(datasetId, targetCol, goal),
-      fetchTransformationHistory(datasetId),
-      fetchBeforeAfterComparison(datasetId),
-    ]);
-    setPreviewData(preview);
-    setProfileData(profile);
-    setQualityData(quality);
-    setRecommendationsData(recommendations);
-    setHistoryData(history);
-    setComparisonData(comparison);
+    setIsTabLoading(true);
+    try {
+      const [
+        preview,
+        profile,
+        quality,
+        recommendations,
+        history,
+        comparison,
+      ] = await Promise.all([
+        fetchDatasetPreview(datasetId),
+        fetchDatasetProfile(datasetId),
+        fetchDatasetQuality(datasetId, targetCol),
+        fetchDatasetRecommendations(datasetId, targetCol, goal),
+        fetchTransformationHistory(datasetId),
+        fetchBeforeAfterComparison(datasetId),
+      ]);
+      setPreviewData(preview);
+      setProfileData(profile);
+      setQualityData(quality);
+      setRecommendationsData(recommendations);
+      setHistoryData(history);
+      setComparisonData(comparison);
+    } catch (err) {
+      setErrorMsg(err.message || "Failed to refresh dataset views.");
+    } finally {
+      setIsTabLoading(false);
+    }
   };
 
   const handleFileUpload = async (file) => {
@@ -86,12 +94,19 @@ export default function App() {
     setTargetColumn(newTarget);
     setUserGoal(newGoal);
     if (shouldFetch && uploadData?.dataset_id) {
-      const [quality, recommendations] = await Promise.all([
-        fetchDatasetQuality(uploadData.dataset_id, newTarget),
-        fetchDatasetRecommendations(uploadData.dataset_id, newTarget, newGoal),
-      ]);
-      setQualityData(quality);
-      setRecommendationsData(recommendations);
+      setIsTabLoading(true);
+      try {
+        const [quality, recommendations] = await Promise.all([
+          fetchDatasetQuality(uploadData.dataset_id, newTarget),
+          fetchDatasetRecommendations(uploadData.dataset_id, newTarget, newGoal),
+        ]);
+        setQualityData(quality);
+        setRecommendationsData(recommendations);
+      } catch (err) {
+        setErrorMsg(err.message);
+      } finally {
+        setIsTabLoading(false);
+      }
     }
   };
 
@@ -182,7 +197,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="tabs-bar">
+          <div className="tabs-bar" style={{ opacity: isTabLoading ? 0.6 : 1, transition: "opacity 0.15s ease" }}>
             <button
               className={`tab-btn ${activeTab === "recommendations" ? "active" : ""}`}
               onClick={() => setActiveTab("recommendations")}
@@ -244,6 +259,12 @@ export default function App() {
               10-Row Preview
             </button>
           </div>
+
+          {isTabLoading && (
+            <div style={{ textAlign: "center", padding: "0.5rem", fontSize: "0.85rem", color: "#20309A", fontWeight: 600 }}>
+              Updating dataset views...
+            </div>
+          )}
 
           {activeTab === "recommendations" && (
             <AIRecommendations
