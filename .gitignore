@@ -1,0 +1,22 @@
+﻿# Python & Virtual Environment
+backend/.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Uploaded Datasets & Snapshots (keep folders, ignore data files)
+backend/storage/originals/*
+backend/storage/snapshots/*
+!backend/storage/originals/.gitkeep
+!backend/storage/snapshots/.gitkeep
+*.pkl
+
+# Node / React Frontend
+frontend/node_modules/
+frontend/dist/
+npm-debug.log*
+
+# OS & Editor
+.DS_Store
+Thumbs.db
